@@ -31,8 +31,6 @@ import com.github.fge.jackson.jsonpointer.JsonPointerException;
 import com.sun.org.slf4j.internal.Logger;
 import com.sun.org.slf4j.internal.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Map;
 
 
@@ -57,31 +55,11 @@ public final class ReplaceOperation
         super("replace", path, value, value_locator);
     }
 
-    private void removeOriginal(ArrayNode array, JsonNode originalNode) throws JsonPatchException {
-        for (int i = 0; i < array.size(); i++) {
-            if (array.get(i).equals(originalNode)) {
-                array.remove(i);
-                break;
-            }
-        }
-    }
 
     @Override
     public JsonNode apply(final JsonNode node)
             throws JsonPatchException {
-        /*
-         * FIXME cannot quite be replaced by a remove + add because of arrays.
-         * For instance:
-         *
-         * { "op": "replace", "path": "/0", "value": 1 }
-         *
-         * with
-         *
-         * [ "x" ]
-         *
-         * If remove is done first, the array is empty and add rightly complains
-         * that there is no such index in the array.
-         */
+
         if (path.path(node).isMissingNode())
             throw new JsonPatchException(BUNDLE.getMessage(
                     "jsonPatch.noSuchPath"));
@@ -100,101 +78,124 @@ public final class ReplaceOperation
     }
 
     private int getNodeToUpdate(JsonNode valueLocatorNode, ArrayNode array) {
+        if (array == null) return -1;
 
         for (int i = 0; i < array.size(); i++) {
-            if (array.get(i).get("Application Key").equals(valueLocatorNode.get("Application Key")) &&
-                    array.get(i).get("Entitlement Type").equals(valueLocatorNode.get("Entitlement Type")) &&
-                    array.get(i).get("Entitlement Name").equals(valueLocatorNode.get("Entitlement Name"))) {
-                return i;
+            JsonNode currentNode = array.get(i);
+            ObjectMapper mapper = new ObjectMapper();
+            //convert valueLocatorNode to map
+            Map<String, Object> valueLocatorMap = mapper.convertValue(valueLocatorNode, new TypeReference<Map<String, Object>>() {
+            });
+            //make flag true
+            boolean flag = true;
+            //check if current node has value that are equal to value locator node
+            for (Map.Entry<String, Object> entry : valueLocatorMap.entrySet()) {
+                String currentKey = entry.getKey();
+                //if keys are present
+                if (!valueLocatorNode.get(currentKey).equals(currentNode.get(currentKey))) {
+                    flag = false;
+                    break;
+                }
             }
+            //if all values that are in the value locator node are present then return the index
+            if (flag) return i;
         }
+        //if node or path not found
         return -1;
+    }
+
+    private void applyStrictValidation(boolean flag) throws JsonPatchException {
+        if (flag) {
+            throw new JsonPatchException(BUNDLE.getMessage("jsonPatch.noSuchPath"));
+        } else {
+            logger.error("jsonPatch.noSuchPath");
+        }
+    }
+
+    private JsonNode getNodeToUpdate(boolean flag, JsonNode valueLocatorNode, ArrayNode arrayNode) throws JsonPatchException {
+        //taking index of nodes that we want to update using valueLocatorNode
+        int indToUpdate = getNodeToUpdate(valueLocatorNode, arrayNode);
+        if (indToUpdate == -1) applyStrictValidation(flag);
+        //get that node which we want to update
+        return arrayNode.get(indToUpdate);
+    }
+
+    private ArrayNode getArrayNode(JsonNode node, boolean flag) throws JsonPatchException {
+        //get pointer of array node in which we have the node that we will update using value field
+
+        JsonPointerCustom arrayNodePath = null;
+        try {
+            arrayNodePath = JsonPointerCustom.getBeforeUnknown(path.toString());
+        } catch (JsonPointerException e) {
+            logger.error(e.getMessage());
+        }
+
+        //getting the raw token of that array node
+        String raw = null;
+        if (arrayNodePath != null) {
+            raw = Iterables.getLast(arrayNodePath).getToken().getRaw();
+        } else
+            applyStrictValidation(flag);
+        //get the arrayNode
+        return (ArrayNode) node.get(raw);
     }
 
     @Override
     public JsonNode apply(JsonNode node, boolean flag) throws JsonPatchException {
 
+        if (path == null || value_locator == null) applyStrictValidation(flag);
         JsonNode result = null;
 
+        //if path is not null
         if (path != null && path.toString().contains("?")) {
 
+            //get value locator copy
             JsonNode valueLocatorNode = value_locator.deepCopy();
 
-            JsonPointerCustom array_node_path = null;
-            try {
-                array_node_path = JsonPointerCustom.getBeforeUnknown(path.toString());
-            } catch (JsonPointerException e) {
-                logger.error(e.getMessage());
-            }
+            //get arrayNode in which we will find the node to update
+            ArrayNode arrayNode = getArrayNode(node, flag);
 
-            final String raw = Iterables.getLast(array_node_path).getToken().getRaw();
+            if (arrayNode == null)
+                applyStrictValidation(flag);
 
-            ArrayNode array = (ArrayNode) node.get(raw);
-            if (array == null && flag)
-                throw new JsonPatchException(BUNDLE.getMessage(
-                        "jsonPatch.noSuchPath"));
-            else if (array == null && !flag) {
-                logger.error("jsonPatch.noSuchPath");
-            }
+            //getting the actual node to update
+            JsonNode nodeToUpdate = getNodeToUpdate(flag, valueLocatorNode, arrayNode);
 
-            //taking indexes of nodes that we want to update using valueLocatorNode
-            int indOg = getNodeToUpdate(valueLocatorNode, array);
-            //taking indexes of nodes that we want to remove using valueLocatorNode
-            if (indOg == -1 && flag)
-                throw new JsonPatchException(BUNDLE.getMessage(
-                        "jsonPatch.noSuchPath"));
-            else if (indOg == -1 && flag == false) {
-                logger.error("jsonPatch.noSuchPath");
-            }
-
-            //taking indexes of nodes that we want to update using valueLocatorNode
-            int indToUpdate = getNodeToUpdate(valueLocatorNode, array);
-
-            //get the pointer of the node where we want to insert value of the value field
-            JsonPointerCustom toUpdateNodePointer = null;
-            try {
-                //taking pointer by using getAfterUnknown function which will return /Entitlements/?/Entitlement Key >> Entitlement Key
-                toUpdateNodePointer = JsonPointerCustom.getAfterUnknown(path.toString());
-            } catch (JsonPointerException e) {
-                logger.error("JsonPointerException: " + e.getMessage());
-            }
-
-            //get raw token to update
-            String rawToken = null;
-            if (toUpdateNodePointer != null) {
-                rawToken = Iterables.getLast(toUpdateNodePointer).getToken().getRaw();
-            }
-
-            //get original node and toUpdate node from the entitlements array using the index given by getNodeToUpdate
-            JsonNode ogNode = array.get(indOg);
-            JsonNode updatedNode = array.get(indToUpdate);
-
-            if (updatedNode.get(rawToken) == null && flag)
-                throw new JsonPatchException(BUNDLE.getMessage(
-                        "jsonPatch.noSuchPath"));
-            else if (updatedNode.get(rawToken) == null && !flag)
-                logger.error("jsonPatch.noSuchPath");
+            //getting the field in which update is need to be made
+            String rawTokenField = getRawTokenFieldToUpdate();
 
             //update the node >> updatedNode
-            if (updatedNode.isObject() && rawToken != null) {
-                ((ObjectNode) updatedNode).replace(rawToken, value);
-            } else if (rawToken != null) {
-                ((ArrayNode) updatedNode).set(Integer.parseInt(rawToken), value);
+            if (nodeToUpdate.isObject() && rawTokenField != null) {
+                ((ObjectNode) nodeToUpdate).replace(rawTokenField, value);
+            } else if (rawTokenField != null) {
+                ((ArrayNode) nodeToUpdate).set(Integer.parseInt(rawTokenField), value);
             }
-            //update the updated node in the Entitlements
-            ((ArrayNode) node.get("Entitlements")).add(updatedNode);
-            removeOriginal(array, ogNode);
+
             result = node;
+
         } else {
-
-            if (path == null || (path.path(node).isMissingNode() && flag))
-                throw new JsonPatchException(BUNDLE.getMessage(
-                        "jsonPatch.noSuchPath"));
-            else if (path.path(node).isMissingNode() && !flag)
-                logger.error("jsonPatch.noSuchPath");
-
             result = apply(node);
         }
         return result;
     }
+
+    private String getRawTokenFieldToUpdate() {
+        //get the pointer of the node where we want to update value of the value field
+        JsonPointerCustom toUpdateNodePointer = null;
+        try {
+            //taking pointer by using getAfterUnknown function which will return /Entitlements/?/Entitlement Key >> Entitlement Key
+            toUpdateNodePointer = JsonPointerCustom.getAfterUnknown(path.toString());
+        } catch (JsonPointerException e) {
+            logger.error("JsonPointerException: " + e.getMessage());
+        }
+        //get raw token to update the specified field
+        String rawToken = null;
+        if (toUpdateNodePointer != null) {
+            rawToken = Iterables.getLast(toUpdateNodePointer).getToken().getRaw();
+        }
+        return rawToken;
+    }
+
+
 }
+

@@ -134,6 +134,62 @@
     {
       "op": {
         "op": "replace",
+        "path": "/Fruits/?/Price",
+        "value": "updated",
+        "value_locator": {
+          "Name": "Apple",
+          "Type": "fruit",
+          "Price": "100"
+        }
+      },
+      "node": {
+        "Role Display Name": "Test Role Pset",
+        "Role Category": "Default",
+        "Role Name": "Test Role Pset",
+        "Role Description": "Test Role Pset",
+        "Organization": "Confluxsys",
+        "Role Owner Login": "PBULE",
+        "Role ID": "14350",
+        "$identifier": "14350",
+        "Fruits": [
+          {
+            "Name": "Apple",
+            "Type": "fruit",
+            "Price": "100"
+          },
+          {
+            "Name": "Banana",
+            "Type": "fruit",
+            "Price": "100"
+          }
+        ]
+      },
+      "expected": {
+        "Role Display Name": "Test Role Pset",
+        "Role Category": "Default",
+        "Role Name": "Test Role Pset",
+        "Role Description": "Test Role Pset",
+        "Organization": "Confluxsys",
+        "Role Owner Login": "PBULE",
+        "Role ID": "14350",
+        "$identifier": "14350",
+        "Fruits": [
+          {
+            "Name": "Apple",
+            "Type": "fruit",
+            "Price": "updated"
+          },
+          {
+            "Name": "Banana",
+            "Type": "fruit",
+            "Price": "100"
+          }
+        ]
+      }
+    },
+    {
+      "op": {
+        "op": "replace",
         "path": "/Entitlements/?/Entitlement Key",
         "value": "updated",
         "value_locator": {
@@ -177,6 +233,54 @@
             "Entitlement Name": "565~Deployment Owners",
             "Entitlement Key": "updated",
             "Additional Info": "test"
+          }
+        ]
+      }
+    },
+    {
+      "op": {
+        "op": "replace",
+        "path": "/Fruits/?/Price",
+        "value": "updated",
+        "value_locator": {
+          "Name": "Apple",
+          "Type": "fruit",
+          "Price": "100"
+        }
+      },
+      "node": {
+        "Role Display Name": "Test Role Pset",
+        "Role Category": "Default",
+        "Role Name": "Test Role Pset",
+        "Role Description": "Test Role Pset",
+        "Organization": "Confluxsys",
+        "Role Owner Login": "PBULE",
+        "Role ID": "14350",
+        "$identifier": "14350",
+        "Fruits": [
+          {
+            "Name": "Apple",
+            "Type": "fruit",
+            "Price": "100",
+            "quality": "Good"
+          }
+        ]
+      },
+      "expected": {
+        "Role Display Name": "Test Role Pset",
+        "Role Category": "Default",
+        "Role Name": "Test Role Pset",
+        "Role Description": "Test Role Pset",
+        "Organization": "Confluxsys",
+        "Role Owner Login": "PBULE",
+        "Role ID": "14350",
+        "$identifier": "14350",
+        "Fruits": [
+          {
+            "Name": "Apple",
+            "Type": "fruit",
+            "Price": "updated",
+            "quality": "Good"
           }
         ]
       }

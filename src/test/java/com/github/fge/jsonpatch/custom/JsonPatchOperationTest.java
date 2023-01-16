@@ -77,7 +77,6 @@ public abstract class JsonPatchOperationTest
                     node.get("node"),
                     BUNDLE.getMessage(node.get("message").textValue())
             });
-
         return list.iterator();
     }
 
@@ -107,7 +106,6 @@ public abstract class JsonPatchOperationTest
                     node.get("node"),
                     node.get("expected")
             });
-
         return list.iterator();
     }
 

@@ -3,7 +3,12 @@
     {
       "op": {
         "op": "remove",
-        "path": "/hd/?"
+        "path": "/hd/?",
+        "value_locator": {
+          "Application Key": "121",
+          "Entitlement Type": "UD_GROUPS_GROUPS",
+          "Entitlement Name": "144~Network Security Role"
+        }
       },
       "node": {
         "Role Display Name": "Test Role Pset",
@@ -27,7 +32,12 @@
     {
       "op": {
         "op": "remove",
-        "path": "/Entitlements/?"
+        "path": "/hd/?",
+        "value_locator": {
+          "Application Key": "007",
+          "Entitlement Type": "UD_GROUPS_GROUPS",
+          "Entitlement Name": "144~Network Security Role"
+        }
       },
       "node": {
         "Role Display Name": "Test Role Pset",
@@ -40,7 +50,7 @@
         "$identifier": "14350",
         "Entitlements": [
           {
-            "Application Key": "000",
+            "Application Key": "121",
             "Entitlement Type": "UD_GROUPS_GROUPS",
             "Entitlement Name": "144~Network Security Role"
           }
@@ -51,7 +61,8 @@
     {
       "op": {
         "op": "remove",
-        "path": null
+        "path": null,
+        "value_locator": null
       },
       "node": {
         "Role Display Name": "Test Role Pset",
@@ -130,6 +141,56 @@
         "Role ID": "14350",
         "$identifier": "14350",
         "Entitlements": [
+        ]
+      }
+    },
+    {
+      "op": {
+        "op": "remove",
+        "path": "/Fruits/?",
+        "value_locator": {
+          "Name": "Apple",
+          "Type": "fruit",
+          "Price": "100"
+        }
+      },
+      "node": {
+        "Role Display Name": "Test Role Pset",
+        "Role Category": "Default",
+        "Role Name": "Test Role Pset",
+        "Role Description": "Test Role Pset",
+        "Organization": "Confluxsys",
+        "Role Owner Login": "PBULE",
+        "Role ID": "14350",
+        "$identifier": "14350",
+        "Fruits": [
+          {
+            "Name": "Apple",
+            "Type": "fruit",
+            "Price": "100"
+          },
+          {
+            "Name": "Banana",
+            "Type": "fruit",
+            "Price": "100"
+          }
+        ]
+      },
+      "expected": {
+        "Role Display Name": "Test Role Pset",
+        "Role Category": "Default",
+        "Role Name": "Test Role Pset",
+        "Role Description": "Test Role Pset",
+        "Organization": "Confluxsys",
+        "Role Owner Login": "PBULE",
+        "Role ID": "14350",
+        "$identifier": "14350",
+        "Fruits": [
+          {
+            "Name": "Banana",
+            "Type": "fruit",
+            "Price": "100"
+          }
         ]
       }
     },

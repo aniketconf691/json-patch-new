@@ -29,8 +29,9 @@ package com.github.fge.jsonpatch;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -42,6 +43,7 @@ import com.sun.org.slf4j.internal.Logger;
 import com.sun.org.slf4j.internal.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * JSON Path {@code remove} operation
@@ -49,113 +51,101 @@ import java.io.IOException;
  * <p>This operation only takes one pointer ({@code path}) as an argument. It
  * is an error condition if no JSON value exists at that pointer.</p>
  */
-public final class RemoveOperation
-        extends JsonPatchOperation {
+public final class RemoveOperation extends JsonPatchOperation {
 
     Logger logger = LoggerFactory.getLogger(RemoveOperation.class);
-
 
     @JsonCreator
     public RemoveOperation(@JsonProperty("path") final JsonPointerCustom path, @JsonProperty("value_locator") final JsonNode value_locator) {
         super("remove", path, value_locator);
     }
 
+    private int getNodeToRemove(JsonNode valueLocatorNode, ArrayNode array) {
 
-    private int getNodeToUpdate(JsonNode valueLocatorNode, ArrayNode array) {
+        if (array == null) return -1;
+
         for (int i = 0; i < array.size(); i++) {
-            if (array.get(i).get("Application Key").equals(valueLocatorNode.get("Application Key")) &&
-                    array.get(i).get("Entitlement Type").equals(valueLocatorNode.get("Entitlement Type")) &&
-                    array.get(i).get("Entitlement Name").equals(valueLocatorNode.get("Entitlement Name"))) {
-                return i;
+            JsonNode currentNode = array.get(i);
+            ObjectMapper mapper = new ObjectMapper();
+            //convert valueLocatorNode to map
+            Map<String, Object> valueLocatorMap = mapper.convertValue(valueLocatorNode, new TypeReference<Map<String, Object>>() {
+            });
+            //make flag true
+            boolean flag = true;
+            //check if current node has value that are equal to value locator node
+            for (Map.Entry<String, Object> entry : valueLocatorMap.entrySet()) {
+                String currentKey = entry.getKey();
+                //if keys are present
+                if (!valueLocatorNode.get(currentKey).equals(currentNode.get(currentKey))) {
+                    flag = false;
+                    break;
+                }
             }
+            //if all values that are in the value locator node are present then return the index
+            if (flag) return i;
         }
+        //if node or path not found
         return -1;
     }
 
     @Override
-    public JsonNode apply(final JsonNode node)
-            throws JsonPatchException {
-        if (path.isEmpty())
-            return MissingNode.getInstance();
-        if (path.path(node).isMissingNode())
-            throw new JsonPatchException(BUNDLE.getMessage(
-                    "jsonPatch.noSuchPath"));
+    public JsonNode apply(final JsonNode node) throws JsonPatchException {
+        if (path.isEmpty()) return MissingNode.getInstance();
+        if (path.path(node).isMissingNode()) throw new JsonPatchException(BUNDLE.getMessage("jsonPatch.noSuchPath"));
         final JsonNode ret = node.deepCopy();
         final JsonNode parentNode = path.parent().get(ret);
         final String raw = Iterables.getLast(path).getToken().getRaw();
-        if (parentNode.isObject())
-            ((ObjectNode) parentNode).remove(raw);
-        else
-            ((ArrayNode) parentNode).remove(Integer.parseInt(raw));
+        if (parentNode.isObject()) ((ObjectNode) parentNode).remove(raw);
+        else ((ArrayNode) parentNode).remove(Integer.parseInt(raw));
         return ret;
+    }
+
+    private void applyStrictValidation(boolean flag) throws JsonPatchException {
+        if (flag) {
+            throw new JsonPatchException(BUNDLE.getMessage("jsonPatch.noSuchPath"));
+        } else {
+            logger.error("jsonPatch.noSuchPath");
+        }
     }
 
 
     @Override
     public JsonNode apply(JsonNode node, boolean flag) throws JsonPatchException {
-
-        JsonNode result = null;
-
+        if (path == null || value_locator == null) applyStrictValidation(flag);
+        JsonNode result;
         //see if path is null and check if its has ?
         if (path != null && path.toString().contains("?")) {
-
             //get the value locator
             JsonNode valueLocatorNode = value_locator.deepCopy();
-
-            JsonPointerCustom array_node_path = null;
+            JsonPointerCustom arrayNodePath = null;
             try {
-                //get the path before ? i.e.>> /Entitlements
-                array_node_path = JsonPointerCustom.getBeforeUnknown(path.toString());
+                //get the path before ? i.e.>> array node
+                arrayNodePath = JsonPointerCustom.getBeforeUnknown(path.toString());
             } catch (JsonPointerException e) {
-                logger.error("JsonPointerException: " + e.getMessage() + " " + "Please provide valid path string or tokens");
+                applyStrictValidation(flag);
             }
-            if (array_node_path != null) {
-                //get the raw representation of the field i.e >> Entitlements
-                final String raw = Iterables.getLast(array_node_path).getToken().getRaw();
-                //get the array node Entitlements
-                ArrayNode array = (ArrayNode) node.get(raw);
-
-                //if array is null and flag is true then throw exception
-                if (array == null && flag)
-                    throw new JsonPatchException(BUNDLE.getMessage(
-                            "jsonPatch.noSuchPath"));
-                    //els log the exception
-                else if (array == null && !flag) {
-                    logger.error("jsonPatch.noSuchPath");
-                }
-
-                //taking indexes of nodes that we want to remove using valueLocatorNode
-                int indOg = getNodeToUpdate(valueLocatorNode, array);
-
+            String raw = null;
+            //get the raw representation of the field i.e >> array node field
+            if (arrayNodePath != null) {
+                raw = Iterables.getLast(arrayNodePath).getToken().getRaw();
+                //get the array node
+                ArrayNode arrayNode = (ArrayNode) node.get(raw);
+                //taking index of node that we want to remove using valueLocatorNode
+                int toRemove = getNodeToRemove(valueLocatorNode, arrayNode);
                 // if its not present then throw exception
-                if (indOg == -1 && flag)
-                    throw new JsonPatchException(BUNDLE.getMessage(
-                            "jsonPatch.noSuchPath"));
-                    //else log the exception
-                else if (indOg == -1 && flag == false) {
-                    logger.error("jsonPatch.noSuchPath");
-                }
-
+                if (toRemove == -1) applyStrictValidation(flag);
                 //remove the node
-                array.remove(indOg);
-                result = node;
+                arrayNode.remove(toRemove);
             }
-
+            result = node;
         } else {
-            // if path is null  or if path is missing
-            if (path == null || (path.path(node).isMissingNode() && flag))
-                //throw exception
-                throw new JsonPatchException(BUNDLE.getMessage(
-                        "jsonPatch.noSuchPath"));
             result = apply(node);
         }
         return result;
     }
 
     @Override
-    public void serialize(final JsonGenerator jgen,
-                          final SerializerProvider provider)
-            throws IOException, JsonProcessingException {
+    public void serialize(final JsonGenerator jgen, final SerializerProvider provider) throws IOException {
         jgen.writeStartObject();
         jgen.writeStringField("op", "remove");
         jgen.writeStringField("path", path.toString());
@@ -163,9 +153,7 @@ public final class RemoveOperation
     }
 
     @Override
-    public void serializeWithType(final JsonGenerator jgen,
-                                  final SerializerProvider provider, final TypeSerializer typeSer)
-            throws IOException, JsonProcessingException {
+    public void serializeWithType(final JsonGenerator jgen, final SerializerProvider provider, final TypeSerializer typeSer) throws IOException {
         serialize(jgen, provider);
     }
 
