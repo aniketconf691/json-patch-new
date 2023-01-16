@@ -136,6 +136,7 @@ public final class RemoveOperation extends JsonPatchOperation {
                 if (toRemove == -1) applyStrictValidation(flag);
                 //remove the node
                 arrayNode.remove(toRemove);
+
             }
             result = node;
         } else {
@@ -160,5 +161,8 @@ public final class RemoveOperation extends JsonPatchOperation {
     @Override
     public String toString() {
         return "op: " + op + "; path: \"" + path + '"';
+
     }
+    
+
 }
