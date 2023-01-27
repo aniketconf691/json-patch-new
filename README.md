@@ -159,3 +159,4 @@ final JsonNode patched = patch.apply(orig);
 [Maven Central badge]: https://img.shields.io/maven-central/v/com.github.java-json-tools/json-patch.svg
 [Maven]: https://search.maven.org/artifact/com.github.java-json-tools/json-patch
 # jsonPatch1
+# jsonPatch1
